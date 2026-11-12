@@ -1,25 +1,39 @@
 {
   "expo": {
-    "name": "axona-mobile-app",
-    "slug": "axona-mobile-app",
-    "version": "1.0.0",
+    "name": "Axona Fleet",
+    "displayName": "Axona Fleet Management",
+    "slug": "axona-fleet-management",
+    "version": "2.4.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#102C50",
+    "primaryColor": "#102C50",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.axonasoftware.fleet",
+      "buildNumber": "24",
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "NSLocationWhenInUseUsageDescription": "Axona requires access to your location to plot driver routes and live vehicle navigation.",
+        "NSFaceIDUsageDescription": "Enable biometric authentication to securely access Axona Fleet Management."
+      }
     },
     "android": {
+      "package": "com.axonasoftware.fleet",
+      "versionCode": 24,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#102C50"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "USE_BIOMETRIC",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro"
     }
   }
 }
