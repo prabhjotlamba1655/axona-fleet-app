@@ -107,6 +107,9 @@ export interface DashboardKPIs {
   offlineDevices?: number;
   todayPanicAlerts?: number;
   overspeedingAlerts?: number;
+  todayCriticalCount?: number;
+  todayWarningCount?: number;
+  todayInfoCount?: number;
 }
 
 export interface DashboardData {

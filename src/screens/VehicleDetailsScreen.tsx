@@ -25,10 +25,12 @@ import {
   FileText,
   AlertCircle,
   Radio,
+  Home,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { shadows } from '../theme/spacing';
 import { StatusBadge } from '../components/StatusBadge';
+import { Header } from '../components/Header';
 import { api } from '../services/api';
 import { useTelematicsStore } from '../store/telematicsStore';
 import { Vehicle, LatestVehicleLocation } from '../types';
@@ -80,8 +82,11 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
       <View style={styles.centerContainer}>
         <AlertCircle size={36} color={colors.criticalRed} />
         <Text style={styles.errorText}>Vehicle records not found</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Return</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+        >
+          <Text style={styles.backButtonText}>Return to Home Dashboard</Text>
         </TouchableOpacity>
       </View>
     );
@@ -94,26 +99,44 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.navBackBtn} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>{vehicle.registration_number}</Text>
-          <Text style={styles.headerSub}>
-            {vehicle.make} {vehicle.model}
-          </Text>
-        </View>
-        <StatusBadge status={status} size="sm" />
-      </View>
+      {/* Standard Header with Back and Home */}
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="VEHICLE DETAILS"
+        subtitle={vehicle.registration_number}
+        vehicleReg={vehicle.registration_number}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Prominent Vehicle Registration Banner */}
+        <View style={styles.regHeroBanner}>
+          <View style={styles.regHeroLeft}>
+            <View style={styles.regHeroIcon}>
+              <Truck size={22} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={styles.regHeroSub}>REGISTERED FLEET ASSET</Text>
+              <Text style={styles.regHeroNumber}>{vehicle.registration_number}</Text>
+              <Text style={styles.regHeroModel}>
+                {vehicle.make} {vehicle.model} • {vehicle.category_name || 'Commercial'}
+              </Text>
+            </View>
+          </View>
+          <StatusBadge status={status} size="md" />
+        </View>
+
         {/* Quick Actions Row */}
         <View style={styles.quickActionsContainer}>
           <TouchableOpacity
             style={styles.quickActionBtn}
-            onPress={() => navigation.navigate('LiveMap', { vehicleId: vehicle.id })}
+            onPress={() =>
+              navigation.navigate('LiveMap', {
+                vehicleId: vehicle.id,
+                registration_number: vehicle.registration_number,
+              })
+            }
           >
             <Navigation2 size={16} color={colors.primaryNavy} />
             <Text style={styles.quickActionText}>Live Track</Text>
@@ -121,7 +144,16 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
 
           <TouchableOpacity
             style={styles.quickActionBtn}
-            onPress={() => navigation.navigate('TripHistory', { vehicleId: vehicle.id })}
+            onPress={() =>
+              navigation.navigate('TripHistory', {
+                vehicleId: vehicle.id,
+                registration_number: vehicle.registration_number,
+                make: vehicle.make,
+                model: vehicle.model,
+                category_name: vehicle.category_name,
+                owner_name: vehicle.owner_name,
+              })
+            }
           >
             <History size={16} color={colors.primaryNavy} />
             <Text style={styles.quickActionText}>Trips</Text>
@@ -129,7 +161,16 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
 
           <TouchableOpacity
             style={styles.quickActionBtn}
-            onPress={() => navigation.navigate('DriverIntelligence', { vehicleId: vehicle.id })}
+            onPress={() =>
+              navigation.navigate('DriverIntelligence', {
+                vehicleId: vehicle.id,
+                registration_number: vehicle.registration_number,
+                make: vehicle.make,
+                model: vehicle.model,
+                category_name: vehicle.category_name,
+                owner_name: vehicle.owner_name,
+              })
+            }
           >
             <Award size={16} color={colors.primaryNavy} />
             <Text style={styles.quickActionText}>Safety</Text>
@@ -137,7 +178,12 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
 
           <TouchableOpacity
             style={styles.quickActionBtn}
-            onPress={() => navigation.navigate('Alerts', { vehicleId: vehicle.id })}
+            onPress={() =>
+              navigation.navigate('Alerts', {
+                vehicleId: vehicle.id,
+                registration_number: vehicle.registration_number,
+              })
+            }
           >
             <ShieldAlert size={16} color={colors.criticalRed} />
             <Text style={[styles.quickActionText, { color: colors.criticalRed }]}>Alerts</Text>
@@ -302,6 +348,15 @@ export const VehicleDetailsScreen: React.FC<VehicleDetailsScreenProps> = ({
             </View>
           </View>
         </View>
+
+        {/* Back to Home Action Button */}
+        <TouchableOpacity
+          style={styles.returnHomeBtn}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+        >
+          <Home size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+          <Text style={styles.returnHomeBtnText}>Back to Executive Home Dashboard</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -311,6 +366,52 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  regHeroBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F2744',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    ...shadows.card,
+  },
+  regHeroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  regHeroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: colors.primaryNavy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#60A5FA',
+  },
+  regHeroSub: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#93C5FD',
+    letterSpacing: 0.5,
+  },
+  regHeroNumber: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    marginVertical: 1,
+  },
+  regHeroModel: {
+    fontSize: 11,
+    color: '#BFDBFE',
+    fontWeight: '500',
   },
   centerContainer: {
     flex: 1,
@@ -341,33 +442,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  header: {
-    backgroundColor: colors.primaryNavy,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  navBackBtn: {
-    padding: 6,
-    marginRight: 10,
-  },
-  headerTitleWrap: {
-    flex: 1,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  headerSub: {
-    color: '#93C5FD',
-    fontSize: 11,
-  },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 180,
+  },
+  returnHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryNavy,
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    ...shadows.subtle,
+  },
+  returnHomeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   quickActionsContainer: {
     flexDirection: 'row',

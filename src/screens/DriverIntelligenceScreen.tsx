@@ -37,6 +37,9 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
   navigation,
   route,
 }) => {
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(
+    route?.params?.vehicleId || ''
+  );
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'events' | 'imuConfig'>('leaderboard');
   const [timeframe, setTimeframe] = useState<'today' | '7days' | '30days' | '90days'>('7days');
   const [summary, setSummary] = useState<any>(null);
@@ -45,17 +48,22 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
   const [imuConfig, setImuConfig] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  const currentVehicleReg =
+    route?.params?.registration_number ||
+    (selectedVehicleId === 'veh_6' ? 'MH-12-EV-8822' : '') ||
+    leaderboard.find((l) => l.vehicleId === selectedVehicleId)?.registrationNumber;
+
   useEffect(() => {
     loadData();
-  }, [timeframe]);
+  }, [selectedVehicleId, timeframe]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [sumRes, leadRes, evRes] = await Promise.all([
-        api.driverIntelligence.getSummary(),
+        api.driverIntelligence.getSummary({ vehicleId: selectedVehicleId || undefined }),
         api.driverIntelligence.getLeaderboard(),
-        api.driverIntelligence.getEvents({ limit: 40 }),
+        api.driverIntelligence.getEvents({ vehicleId: selectedVehicleId || undefined, limit: 40 }),
       ]);
       setSummary(sumRes?.kpis || null);
       setLeaderboard(leadRes || []);
@@ -83,18 +91,59 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title={selectedVehicleId && currentVehicleReg ? `SAFETY: ${currentVehicleReg}` : 'DRIVER SAFETY'}
+        subtitle={selectedVehicleId && currentVehicleReg ? 'Vehicle IMU & Safety Score' : 'IMU & Telematics Scoring'}
+        vehicleReg={currentVehicleReg}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Fleet Safety Score Hero Banner */}
+        {/* Prominent Vehicle Scope Banner */}
+        {currentVehicleReg ? (
+          <View style={styles.vehicleScopeBanner}>
+            <View style={styles.scopeIconWrap}>
+              <Award size={22} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scopeSub}>
+                {selectedVehicleId ? 'SPECIFIC VEHICLE SAFETY PROFILE' : 'FLEET-WIDE SAFETY OVERVIEW'}
+              </Text>
+              <Text style={styles.scopeReg}>
+                {selectedVehicleId ? currentVehicleReg : 'All 7 Registered Fleet Assets'}
+              </Text>
+              <Text style={styles.scopeDesc}>
+                {selectedVehicleId
+                  ? `${route?.params?.make || 'Mahindra'} ${route?.params?.model || 'XUV700 Inspection Vehicle'} • Apex Logistics LLP`
+                  : 'Aggregated safety telemetry across commercial fleet'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.toggleScopeBtn}
+              onPress={() => setSelectedVehicleId(selectedVehicleId ? '' : (route?.params?.vehicleId || 'veh_6'))}
+            >
+              <Text style={styles.toggleScopeText}>
+                {selectedVehicleId ? 'Show All Fleet' : 'Filter Vehicle'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* Fleet or Vehicle Safety Score Hero Banner */}
         <View style={styles.scoreHeroCard}>
           <View style={styles.scoreHeroTop}>
             <View>
-              <Text style={styles.scoreHeroLabel}>FLEET SAFETY SCORE (PRD V2.4)</Text>
+              <Text style={styles.scoreHeroLabel}>
+                {selectedVehicleId && currentVehicleReg
+                  ? `SAFETY SCORE: ${currentVehicleReg}`
+                  : 'FLEET AVERAGE SAFETY SCORE (PRD V2.4)'}
+              </Text>
               <Text style={styles.scoreHeroValue}>{kpis.fleetSafetyScore} / 100</Text>
               <Text style={styles.scoreTierBadge}>
                 {kpis.fleetSafetyScore >= 90
-                  ? 'Safe / Defensive Fleet (Tier 1)'
+                  ? 'Safe / Defensive (Tier 1 Certified)'
                   : kpis.fleetSafetyScore >= 75
                   ? 'Moderate / Caution Required (Tier 2)'
                   : 'High Risk / Needs Training (Tier 3)'}
@@ -104,13 +153,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
             <View style={styles.scoreFormulaBox}>
               <Award size={34} color="#60A5FA" />
             </View>
-          </View>
-
-          <View style={styles.formulaNote}>
-            <Shield size={12} color="#93C5FD" style={{ marginRight: 6 }} />
-            <Text style={styles.formulaText}>
-              Algorithm: 100 - (3×HB + 2×HA + 10×Tilt + 5×Rash + 2×Overspeed)
-            </Text>
           </View>
         </View>
 
@@ -154,7 +196,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
               </View>
               <Text style={styles.dimCount}>{kpis.harshBraking}</Text>
               <Text style={styles.dimTitle}>Harsh Braking</Text>
-              <Text style={styles.dimSpec}>Code 13 • &gt; 0.55g</Text>
             </View>
 
             {/* 2. Harsh Accel */}
@@ -164,7 +205,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
               </View>
               <Text style={styles.dimCount}>{kpis.harshAccel}</Text>
               <Text style={styles.dimTitle}>Harsh Accel</Text>
-              <Text style={styles.dimSpec}>Code 14 • &gt; 0.43g</Text>
             </View>
 
             {/* 3. Vehicle Tilt */}
@@ -174,7 +214,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
               </View>
               <Text style={[styles.dimCount, { color: colors.criticalRed }]}>{kpis.vehicleTilt}</Text>
               <Text style={styles.dimTitle}>Vehicle Tilt</Text>
-              <Text style={styles.dimSpec}>Code 22 • &gt; 45° Lean</Text>
             </View>
 
             {/* 4. Rash Driving */}
@@ -184,7 +223,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
               </View>
               <Text style={styles.dimCount}>{kpis.rashDriving}</Text>
               <Text style={styles.dimTitle}>Rash Driving</Text>
-              <Text style={styles.dimSpec}>Code 15 • 30km/h 0.47g</Text>
             </View>
 
             {/* 5. Overspeeding */}
@@ -194,7 +232,6 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
               </View>
               <Text style={styles.dimCount}>{kpis.overspeeding}</Text>
               <Text style={styles.dimTitle}>Overspeeding</Text>
-              <Text style={styles.dimSpec}>Code 17 • &gt; 70 km/h</Text>
             </View>
           </View>
         </View>
@@ -252,47 +289,66 @@ export const DriverIntelligenceScreen: React.FC<DriverIntelligenceScreenProps> =
             ) : leaderboard.length === 0 ? (
               <Text style={styles.emptyText}>No driver rankings found.</Text>
             ) : (
-              leaderboard.map((item) => (
-                <View key={item.vehicleId} style={styles.rankCard}>
-                  <View style={styles.rankLeft}>
-                    <View
-                      style={[
-                        styles.rankBadge,
-                        item.rank === 1 && { backgroundColor: '#F59E0B' },
-                        item.rank === 2 && { backgroundColor: '#94A3B8' },
-                        item.rank === 3 && { backgroundColor: '#B45309' },
-                      ]}
-                    >
-                      <Text style={styles.rankBadgeText}>#{item.rank}</Text>
+              leaderboard.map((item) => {
+                const isSelected =
+                  item.vehicleId === selectedVehicleId ||
+                  item.registrationNumber === currentVehicleReg;
+                return (
+                  <TouchableOpacity
+                    key={item.vehicleId}
+                    style={[styles.rankCard, isSelected && styles.rankCardSelected]}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedVehicleId(item.vehicleId)}
+                  >
+                    <View style={styles.rankLeft}>
+                      <View
+                        style={[
+                          styles.rankBadge,
+                          item.rank === 1 && { backgroundColor: '#F59E0B' },
+                          item.rank === 2 && { backgroundColor: '#3B82F6' },
+                          item.rank === 3 && { backgroundColor: '#B45309' },
+                        ]}
+                      >
+                        <Text style={styles.rankBadgeText}>#{item.rank}</Text>
+                      </View>
+                      <View style={styles.driverInfoWrap}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.driverName} numberOfLines={1}>{item.driverName}</Text>
+                          {isSelected && (
+                            <View style={styles.selectedPillBadge}>
+                              <Text style={styles.selectedPillText}>SELECTED</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.driverSub} numberOfLines={1}>
+                          {item.registrationNumber} • {item.vehicleName}
+                        </Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.driverName}>{item.driverName}</Text>
-                      <Text style={styles.driverSub}>
-                        {item.registrationNumber} • {item.vehicleName}
-                      </Text>
-                    </View>
-                  </View>
 
-                  <View style={styles.rankRight}>
-                    <Text
-                      style={[
-                        styles.driverScore,
-                        {
-                          color:
-                            item.safetyScore >= 90
-                              ? colors.statusMoving
-                              : item.safetyScore >= 75
-                              ? colors.warningAmber
-                              : colors.criticalRed,
-                        },
-                      ]}
-                    >
-                      {item.safetyScore}
-                    </Text>
-                    <Text style={styles.violationsSub}>{item.totalViolations} violations</Text>
-                  </View>
-                </View>
-              ))
+                    <View style={styles.rankRight}>
+                      <Text
+                        style={[
+                          styles.driverScore,
+                          {
+                            color:
+                              item.safetyScore >= 90
+                                ? colors.statusMoving
+                                : item.safetyScore >= 75
+                                ? colors.warningAmber
+                                : colors.criticalRed,
+                          },
+                        ]}
+                      >
+                        {item.safetyScore}
+                      </Text>
+                      <View style={styles.violationsBadge}>
+                        <Text style={styles.violationsSub}>{item.totalViolations} violations</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         )}
@@ -374,7 +430,77 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
+  },
+  vehicleScopeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F2744',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    ...shadows.card,
+  },
+  scopeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: colors.primaryNavy,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: '#60A5FA',
+  },
+  scopeSub: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#93C5FD',
+    letterSpacing: 0.5,
+  },
+  scopeReg: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    marginVertical: 1,
+  },
+  scopeDesc: {
+    fontSize: 11,
+    color: '#BFDBFE',
+    fontWeight: '500',
+  },
+  toggleScopeBtn: {
+    backgroundColor: '#0066CC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#60A5FA',
+  },
+  toggleScopeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  rankCardSelected: {
+    borderColor: '#3B82F6',
+    borderWidth: 2,
+    backgroundColor: '#EFF6FF',
+  },
+  selectedPillBadge: {
+    backgroundColor: '#1E40AF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  selectedPillText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   scoreHeroCard: {
     backgroundColor: colors.primaryNavy,
@@ -551,6 +677,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 12,
+  },
+  driverInfoWrap: {
+    flex: 1,
   },
   rankBadge: {
     width: 28,
@@ -559,6 +690,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryNavy,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   rankBadgeText: {
     color: '#FFFFFF',
@@ -573,16 +705,29 @@ const styles = StyleSheet.create({
   driverSub: {
     fontSize: 11,
     color: colors.textSecondary,
+    marginTop: 2,
   },
   rankRight: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    minWidth: 72,
+    flexShrink: 0,
   },
   driverScore: {
     fontSize: 18,
     fontWeight: '800',
+    lineHeight: 22,
+  },
+  violationsBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 3,
   },
   violationsSub: {
     fontSize: 10,
+    fontWeight: '600',
     color: colors.textMuted,
   },
   eventCard: {

@@ -25,6 +25,8 @@ import {
   User,
   Cpu,
   RotateCcw,
+  Truck,
+  Home,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { shadows } from '../theme/spacing';
@@ -108,9 +110,51 @@ export const PanicSosScreen: React.FC<PanicSosScreenProps> = ({ navigation }) =>
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="PANIC SOS"
+        subtitle="AIS-140 Emergency Monitoring"
+        vehicleReg={selectedIncident?.registration_number}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Prominent Current Vehicle Highlight Banner */}
+        {selectedIncident && (
+          <View style={styles.activeVehicleHighlight}>
+            <View style={styles.activeVehicleIconWrap}>
+              <Truck size={18} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.activeVehicleLabel}>ACTIVE EMERGENCY VEHICLE</Text>
+              <Text style={styles.activeVehicleReg}>{selectedIncident.registration_number}</Text>
+              <Text style={styles.activeVehicleMeta}>
+                Driver: {selectedIncident.owner_name || 'Assigned Driver'} • Phone: {selectedIncident.owner_phone || '+91 98220 12345'}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.activeVehicleBadge,
+                selectedIncident.status === 'New'
+                  ? { backgroundColor: '#FEE2E2' }
+                  : { backgroundColor: '#FEF3C7' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.activeVehicleBadgeText,
+                  selectedIncident.status === 'New'
+                    ? { color: colors.criticalRed }
+                    : { color: colors.warningAmber },
+                ]}
+              >
+                {selectedIncident.status.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Critical Command Banner */}
         <View style={styles.criticalHeaderCard}>
           <View style={styles.bannerTop}>
@@ -343,11 +387,20 @@ export const PanicSosScreen: React.FC<PanicSosScreenProps> = ({ navigation }) =>
               </TouchableOpacity>
             );
           })}
+
+          {/* Quick Return to Home Dashboard button */}
+          <TouchableOpacity
+            style={styles.returnHomeBtn}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+          >
+            <Home size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.returnHomeText}>Back to Executive Home Dashboard</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
       {/* Mandatory Remarks Modal */}
-      <Modal visible={modalVisible} transparent animationType="fade">
+      {modalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
@@ -389,7 +442,7 @@ export const PanicSosScreen: React.FC<PanicSosScreenProps> = ({ navigation }) =>
             </View>
           </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
@@ -401,7 +454,73 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
+  },
+  activeVehicleHighlight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F2744',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    ...shadows.subtle,
+  },
+  activeVehicleIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#1E40AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  activeVehicleLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#93C5FD',
+    letterSpacing: 0.5,
+  },
+  activeVehicleReg: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  activeVehicleMeta: {
+    fontSize: 11,
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  activeVehicleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  activeVehicleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  returnHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryNavy,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    ...shadows.subtle,
+  },
+  returnHomeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   criticalHeaderCard: {
     backgroundColor: colors.criticalRed,
@@ -638,11 +757,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 25, 47, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
+    zIndex: 99999,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',

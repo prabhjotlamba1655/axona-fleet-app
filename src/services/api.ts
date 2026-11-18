@@ -143,8 +143,9 @@ export const api = {
   },
 
   driverIntelligence: {
-    async getSummary(): Promise<{
+    async getSummary(params?: { vehicleId?: string }): Promise<{
       success: boolean;
+      vehicle?: any;
       kpis: {
         totalEvents: number;
         harshBraking: number;
@@ -157,7 +158,7 @@ export const api = {
         protocol: string;
       };
     }> {
-      const res = await apiClient.get('/driver-intelligence/summary');
+      const res = await apiClient.get('/driver-intelligence/summary', { params });
       return res.data;
     },
     async getEvents(params?: {

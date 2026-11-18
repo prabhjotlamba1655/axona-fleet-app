@@ -99,7 +99,13 @@ export const UserManagementScreen: React.FC<UserManagementScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="USER MANAGEMENT"
+        subtitle="RBAC & Asset Assignments"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.topHeader}>
@@ -155,7 +161,7 @@ export const UserManagementScreen: React.FC<UserManagementScreenProps> = ({
       </ScrollView>
 
       {/* Add User Modal */}
-      <Modal visible={modalVisible} transparent animationType="fade">
+      {modalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -246,7 +252,7 @@ export const UserManagementScreen: React.FC<UserManagementScreenProps> = ({
             </View>
           </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
   },
   topHeader: {
     flexDirection: 'row',
@@ -370,11 +376,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 25, 47, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
+    zIndex: 99999,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',

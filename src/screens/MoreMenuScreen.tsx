@@ -9,19 +9,16 @@ import {
   Alert,
 } from 'react-native';
 import {
-  History,
   Award,
   Layers,
-  FileText,
-  Cpu,
   Users,
   Settings,
-  HelpCircle,
   ShieldAlert,
   ChevronRight,
   LogOut,
   Shield,
-  LifeBuoy,
+  Home,
+  FileText,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { shadows } from '../theme/spacing';
@@ -36,14 +33,6 @@ export const MoreMenuScreen: React.FC<MoreMenuScreenProps> = ({ navigation }) =>
   const { user, canManageUsers, logout } = useAuthStore();
 
   const menuItems = [
-    {
-      id: 'trips',
-      title: 'Trip History & Route Replay',
-      subtitle: '90-day time-series waypoint playback & en-route halts',
-      icon: History,
-      color: colors.primaryNavy,
-      action: () => navigation.navigate('TripHistory'),
-    },
     {
       id: 'driver',
       title: 'Driver Intelligence & Safety',
@@ -70,19 +59,11 @@ export const MoreMenuScreen: React.FC<MoreMenuScreenProps> = ({ navigation }) =>
     },
     {
       id: 'reports',
-      title: 'Enterprise Compliance Reports',
-      subtitle: 'All 8 standard reports with CSV export & OSM coordinates',
+      title: 'Enterprise Fleet Audit Reports',
+      subtitle: 'Download up to 90-day reports with custom date range in PDF',
       icon: FileText,
-      color: colors.secondaryNavy,
-      action: () => navigation.navigate('Reports'),
-    },
-    {
-      id: 'health',
-      title: 'GPS Device Hardware Health',
-      subtitle: 'Main battery voltage (0V cut), backup battery, tamper switch',
-      icon: Cpu,
-      color: colors.warningAmber,
-      action: () => navigation.navigate('DeviceHealth'),
+      color: colors.primaryNavy,
+      action: () => navigation.navigate('Reports', { initialTab: 'reports' }),
     },
     ...(canManageUsers()
       ? [
@@ -104,23 +85,17 @@ export const MoreMenuScreen: React.FC<MoreMenuScreenProps> = ({ navigation }) =>
       color: colors.primaryNavy,
       action: () => navigation.navigate('ProfileSettings'),
     },
-    {
-      id: 'help',
-      title: 'Help, Support & MoRTH Docs',
-      subtitle: 'AIS-140 specifications, technical support & diagnostics',
-      icon: HelpCircle,
-      color: colors.textSecondary,
-      action: () =>
-        Alert.alert(
-          'Axona Help Desk',
-          'Axona Fleet Management Platform v2.4 (Enterprise Edition).\nDeveloped by Axona Software LLP.\nSupport Email: support@axonafleet.com\nEmergency Line: 112 / +91 98765 00001'
-        ),
-    },
   ];
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="ENTERPRISE MODULES"
+        subtitle="Axona Fleet Management v2.4"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headingWrap}>
@@ -158,6 +133,16 @@ export const MoreMenuScreen: React.FC<MoreMenuScreenProps> = ({ navigation }) =>
               </TouchableOpacity>
             );
           })}
+
+          {/* Explicit Home Shortcut at end of Modules */}
+          <TouchableOpacity
+            style={styles.returnHomeBtn}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Home' })}
+          >
+            <Home size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.returnHomeText}>Return to Executive Home Dashboard</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -171,7 +156,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 180,
   },
   headingWrap: {
     marginBottom: 14,
@@ -220,5 +205,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  returnHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryNavy,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    ...shadows.subtle,
+  },
+  returnHomeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });

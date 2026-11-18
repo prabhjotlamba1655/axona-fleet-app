@@ -74,7 +74,13 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="PROFILE & SETTINGS"
+        subtitle="User Preferences & Auth"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* User Card */}
@@ -227,7 +233,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
   },
   userCard: {
     flexDirection: 'row',

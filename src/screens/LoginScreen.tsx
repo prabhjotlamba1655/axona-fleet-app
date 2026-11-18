@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { Mail, Lock, Shield, Eye, EyeOff, Fingerprint, ArrowRight, UserCheck } from 'lucide-react-native';
 import { colors } from '../theme/colors';
@@ -82,7 +83,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoBadgeText}>A</Text>
+            <Image
+              source={require('../../assets/axona-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>AXONA</Text>
           <Text style={styles.subtitle}>Enterprise Telematics & Fleet SaaS</Text>
@@ -305,21 +310,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 16,
-    backgroundColor: colors.primaryNavy,
+    width: 68,
+    height: 68,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#93C5FD',
+    borderWidth: 1.5,
+    borderColor: '#60A5FA',
     marginBottom: 10,
+    padding: 6,
+    overflow: 'hidden',
     ...shadows.card,
   },
-  logoBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-    fontSize: 34,
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   title: {
     fontSize: 26,

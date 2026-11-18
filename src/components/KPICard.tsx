@@ -50,7 +50,7 @@ export const KPICard: React.FC<KPICardProps> = ({
           {value}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={styles.subtitle} numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceBorder,
     ...shadows.subtle,
-    minHeight: 88,
+    minHeight: 74,
     justifyContent: 'space-between',
   },
   cardCritical: {

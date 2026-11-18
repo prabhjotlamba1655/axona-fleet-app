@@ -32,13 +32,14 @@ interface NotificationItem {
   time: string;
   read: boolean;
   screenTarget: string;
+  alertType?: 'SOS' | 'TOWING' | 'TILT' | 'GEOFENCE_EXIT' | 'GEOFENCE_ENTRY';
   params?: any;
 }
 
 export const NotificationCentreScreen: React.FC<NotificationCentreScreenProps> = ({
   navigation,
 }) => {
-  const { panicEvents } = useTelematicsStore();
+  const { panicEvents, simulateCriticalAlert } = useTelematicsStore();
 
   const [activeTab, setActiveTab] = useState<'ALL' | 'CRITICAL' | 'WARNING' | 'INFO'>('ALL');
   const [notifications, setNotifications] = useState<NotificationItem[]>([
@@ -46,37 +47,60 @@ export const NotificationCentreScreen: React.FC<NotificationCentreScreenProps> =
       id: 'notif_1',
       tier: 'CRITICAL',
       title: 'AIS-140 Physical Panic SOS Activated',
-      body: 'Vehicle MH-12-PQ-9081 triggered driver emergency switch. Immediate NOC intervention required.',
+      body: 'Vehicle MH-12-RN-2024 triggered driver emergency switch. Immediate NOC intervention required.',
       time: '2 mins ago',
       read: false,
       screenTarget: 'PanicSos',
+      alertType: 'SOS',
+    },
+    {
+      id: 'notif_tow',
+      tier: 'CRITICAL',
+      title: 'Unauthorized Vehicle Towing Detected',
+      body: 'Vehicle MH-14-DT-7711 moving at 18.5 km/h while engine ignition is switched OFF.',
+      time: '12 mins ago',
+      read: false,
+      screenTarget: 'LiveMap',
+      alertType: 'TOWING',
     },
     {
       id: 'notif_2',
       tier: 'CRITICAL',
-      title: 'Vehicle Tilt / Rollover Hazard (48°)',
-      body: 'Vehicle MH-04-AB-1234 3-axis MEMS sensor recorded angular lean exceeding safety limit.',
-      time: '18 mins ago',
+      title: 'Vehicle Tilt / Rollover Hazard (48.5°)',
+      body: 'Vehicle MH-12-PQ-9081 3-axis MEMS sensor recorded 48.5° angular lean exceeding 45° safety limit.',
+      time: '25 mins ago',
       read: false,
       screenTarget: 'DriverIntelligence',
+      alertType: 'TILT',
+    },
+    {
+      id: 'notif_geo_exit',
+      tier: 'CRITICAL',
+      title: 'Geofence Exit: Apex Hinjawadi Central Hub',
+      body: 'Vehicle MH-12-RN-2024 departed authorized depot boundary without gate pass clearance.',
+      time: '45 mins ago',
+      read: false,
+      screenTarget: 'Geofencing',
+      alertType: 'GEOFENCE_EXIT',
+    },
+    {
+      id: 'notif_geo_entry',
+      tier: 'CRITICAL',
+      title: 'Geofence Entry: Pune City Restricted Zone',
+      body: 'Vehicle MH-14-DT-7711 entered restricted heavy commercial vehicle corridor during peak hours.',
+      time: '1 hour ago',
+      read: false,
+      screenTarget: 'Geofencing',
+      alertType: 'GEOFENCE_ENTRY',
     },
     {
       id: 'notif_3',
       tier: 'WARNING',
-      title: 'Harsh Braking Maneuver (-0.64g)',
+      title: 'Harsh Braking Maneuver (-0.65g)',
       body: 'Vehicle MH-12-PQ-9081 exceeded deceleration threshold on Mumbai-Pune expressway.',
-      time: '45 mins ago',
+      time: '1.5 hours ago',
       read: true,
       screenTarget: 'DriverIntelligence',
-    },
-    {
-      id: 'notif_4',
-      tier: 'WARNING',
-      title: 'Geofence Exit: JNPT Port Container Bay',
-      body: 'Vehicle MH-12-PQ-9081 departed designated loading zone without prior gate pass.',
-      time: '1 hour ago',
-      read: true,
-      screenTarget: 'Geofencing',
     },
     {
       id: 'notif_5',
@@ -99,7 +123,11 @@ export const NotificationCentreScreen: React.FC<NotificationCentreScreenProps> =
     setNotifications((prev) =>
       prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
     );
-    navigation.navigate(notif.screenTarget, notif.params);
+    if (notif.alertType) {
+      simulateCriticalAlert(notif.alertType);
+    } else {
+      navigation.navigate(notif.screenTarget, notif.params);
+    }
   };
 
   const filtered = notifications.filter((n) => {
@@ -109,7 +137,13 @@ export const NotificationCentreScreen: React.FC<NotificationCentreScreenProps> =
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="NOTIFICATIONS"
+        subtitle="Alerts & Audit Dispatches"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Unread Summary & Actions */}
@@ -214,7 +248,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
   },
   topBar: {
     flexDirection: 'row',

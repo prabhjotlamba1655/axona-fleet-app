@@ -74,7 +74,13 @@ export const DeviceHealthScreen: React.FC<DeviceHealthScreenProps> = ({ navigati
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="DEVICE HEALTH"
+        subtitle="Hardware & Tamper Monitor"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Hardware Status Summary Bar */}
@@ -236,7 +242,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
   },
   summaryBar: {
     flexDirection: 'row',

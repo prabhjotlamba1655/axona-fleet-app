@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Animated, ActivityIndicator, Image } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuthStore } from '../store/authStore';
 
@@ -55,9 +55,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ navigation }) => {
           },
         ]}
       >
-        {/* Axona Geometric Emblem */}
+        {/* Axona Official Brand Logo */}
         <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeLetter}>A</Text>
+          <Image
+            source={require('../../assets/axona-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <Text style={styles.brandTitle}>AXONA</Text>
@@ -94,26 +98,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 22,
-    backgroundColor: colors.accentBlue,
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#93C5FD',
+    borderWidth: 2,
+    borderColor: '#60A5FA',
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 14,
+    elevation: 10,
+    padding: 8,
+    overflow: 'hidden',
   },
-  logoBadgeLetter: {
-    color: '#FFFFFF',
-    fontSize: 52,
-    fontWeight: '900',
-    letterSpacing: -1,
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   brandTitle: {
     color: '#FFFFFF',

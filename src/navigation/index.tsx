@@ -1,14 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
+export const navigationRef = createNavigationContainerRef<any>();
 import {
   Home,
   MapPin,
   Truck,
   ShieldAlert,
   Menu,
+  Navigation,
+  ClipboardCheck,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { useTelematicsStore } from '../store/telematicsStore';
@@ -46,15 +50,28 @@ function MainTabNavigator() {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: colors.surfaceBorder,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 6,
+          borderTopWidth: 1,
+          height: 62,
+          paddingTop: 4,
+          paddingBottom: 4,
+          elevation: 10,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.08,
+          shadowRadius: 10,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingVertical: 1,
         },
         tabBarActiveTintColor: colors.primaryNavy,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '700',
+          marginTop: 1,
+          marginBottom: 1,
         },
       }}
     >
@@ -70,16 +87,16 @@ function MainTabNavigator() {
         name="LiveMap"
         component={LiveTrackingScreen}
         options={{
-          tabBarLabel: 'Live Map',
-          tabBarIcon: ({ color, size }) => <MapPin size={20} color={color} />,
+          tabBarLabel: 'Live Tracking',
+          tabBarIcon: ({ color, size }) => <Navigation size={20} color={color} />,
         }}
       />
       <Tab.Screen
-        name="Vehicles"
-        component={VehicleListScreen}
+        name="Compliance"
+        component={EnterpriseReportsScreen}
         options={{
-          tabBarLabel: 'Vehicles',
-          tabBarIcon: ({ color, size }) => <Truck size={20} color={color} />,
+          tabBarLabel: 'Compliance',
+          tabBarIcon: ({ color, size }) => <ClipboardCheck size={20} color={color} />,
         }}
       />
       <Tab.Screen
@@ -109,7 +126,7 @@ function MainTabNavigator() {
 
 export function AppNavigator() {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Splash"
         screenOptions={{
@@ -120,6 +137,7 @@ export function AppNavigator() {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="Vehicles" component={VehicleListScreen} />
         <Stack.Screen name="VehicleDetails" component={VehicleDetailsScreen} />
         <Stack.Screen name="TripHistory" component={TripHistoryScreen} />
         <Stack.Screen name="PanicSos" component={PanicSosScreen} />

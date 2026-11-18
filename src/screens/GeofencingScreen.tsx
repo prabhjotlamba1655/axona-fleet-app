@@ -21,6 +21,8 @@ import {
   ArrowRight,
   Truck,
   X,
+  Check,
+  Compass,
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { shadows } from '../theme/spacing';
@@ -121,7 +123,13 @@ export const GeofencingScreen: React.FC<GeofencingScreenProps> = ({ navigation }
 
   return (
     <View style={styles.container}>
-      <Header navigation={navigation} />
+      <Header
+        navigation={navigation}
+        showBack={true}
+        showHome={true}
+        title="GEOFENCING"
+        subtitle="Spatial Perimeters & Dwell"
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Map Header Preview */}
@@ -241,62 +249,155 @@ export const GeofencingScreen: React.FC<GeofencingScreenProps> = ({ navigation }
         </View>
       </ScrollView>
 
-      {/* Creation Modal */}
-      <Modal visible={createModalVisible} transparent animationType="fade">
+      {/* Creation Modal Overlay (Contained within mobile viewport) */}
+      {createModalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeading}>Arm New Geofence Perimeter</Text>
-              <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <X size={20} color={colors.textSecondary} />
+              <View style={styles.modalHeaderTitleWrap}>
+                <View style={styles.modalIconBadge}>
+                  <Shield size={18} color={colors.accentBlue} />
+                </View>
+                <View>
+                  <Text style={styles.modalHeading}>Arm New Geofence</Text>
+                  <Text style={styles.modalSubheading}>AIS-140 Spatial Perimeter Zone</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setCreateModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Zone Name / Depot ID</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. Apex Hinjawadi Central Logistics Hub"
-                placeholderTextColor={colors.textMuted}
-                value={newZoneName}
-                onChangeText={setNewZoneName}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Perimeter Radius (Meters)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="500"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                value={newZoneRadius}
-                onChangeText={setNewZoneRadius}
-              />
-            </View>
-
-            <View style={styles.rowInputs}>
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Latitude</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={newZoneLat}
-                  onChangeText={setNewZoneLat}
-                  keyboardType="numeric"
-                />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollBody}>
+              {/* Field 1: Zone Name / Depot ID */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ZONE NAME / DEPOT ID *</Text>
+                <View style={styles.inputContainer}>
+                  <MapPin size={15} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Apex Hinjawadi Central Logistics Hub"
+                    placeholderTextColor={colors.textMuted}
+                    value={newZoneName}
+                    onChangeText={setNewZoneName}
+                  />
+                </View>
               </View>
 
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Longitude</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={newZoneLon}
-                  onChangeText={setNewZoneLon}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
+              {/* Field 2: Perimeter Radius */}
+              <View style={styles.inputGroup}>
+                <View style={styles.inputLabelRow}>
+                  <Text style={styles.inputLabel}>PERIMETER RADIUS *</Text>
+                  <Text style={styles.inputHelperText}>{newZoneRadius} meters</Text>
+                </View>
+                <View style={styles.inputContainer}>
+                  <Compass size={15} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="500"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                    value={newZoneRadius}
+                    onChangeText={setNewZoneRadius}
+                  />
+                  <View style={styles.inputUnitBadge}>
+                    <Text style={styles.inputUnitText}>Meters</Text>
+                  </View>
+                </View>
 
+                {/* Radius Presets */}
+                <View style={styles.radiusPresetsRow}>
+                  {[100, 250, 500, 1000, 2000].map((r) => {
+                    const isSelected = newZoneRadius === r.toString();
+                    return (
+                      <TouchableOpacity
+                        key={r}
+                        style={[styles.radiusChip, isSelected && styles.radiusChipActive]}
+                        onPress={() => setNewZoneRadius(r.toString())}
+                      >
+                        <Text style={[styles.radiusChipText, isSelected && styles.radiusChipTextActive]}>
+                          {r >= 1000 ? `${r / 1000} km` : `${r}m`}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Field 3: GPS Coordinates */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>CENTER COORDINATES (WGS84) *</Text>
+                <View style={styles.coordsRow}>
+                  <View style={styles.coordCol}>
+                    <Text style={styles.coordLabel}>Latitude</Text>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        style={styles.coordInput}
+                        value={newZoneLat}
+                        onChangeText={setNewZoneLat}
+                        keyboardType="numeric"
+                        placeholder="18.5912"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.coordCol}>
+                    <Text style={styles.coordLabel}>Longitude</Text>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        style={styles.coordInput}
+                        value={newZoneLon}
+                        onChangeText={setNewZoneLon}
+                        keyboardType="numeric"
+                        placeholder="73.7389"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Quick Depot Presets */}
+                <View style={styles.depotPresetsRow}>
+                  <Text style={styles.depotPresetsLabel}>PRESETS:</Text>
+                  <TouchableOpacity
+                    style={styles.depotPresetBtn}
+                    onPress={() => {
+                      setNewZoneLat('18.5912');
+                      setNewZoneLon('73.7389');
+                      if (!newZoneName) setNewZoneName('Apex Hinjawadi Central Logistics Hub');
+                    }}
+                  >
+                    <Text style={styles.depotPresetText}>Hinjawadi HQ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.depotPresetBtn}
+                    onPress={() => {
+                      setNewZoneLat('18.5089');
+                      setNewZoneLon('73.9260');
+                      if (!newZoneName) setNewZoneName('Magarpatta Cybercity Hub');
+                    }}
+                  >
+                    <Text style={styles.depotPresetText}>Magarpatta Hub</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Statutory AIS-140 Policy Banner */}
+              <View style={styles.statutoryBanner}>
+                <Check size={13} color={colors.statusMoving} style={{ marginRight: 6 }} />
+                <Text style={styles.statutoryText}>
+                  Breach Triggers: Entry, Exit & Dwell Audit Logged
+                </Text>
+              </View>
+            </ScrollView>
+
+            {/* Modal Actions */}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
@@ -309,12 +410,13 @@ export const GeofencingScreen: React.FC<GeofencingScreenProps> = ({ navigation }
                 style={styles.confirmBtn}
                 onPress={handleCreateGeofence}
               >
+                <Shield size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.confirmText}>Arm Perimeter</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
@@ -326,7 +428,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 160,
   },
   mapCard: {
     backgroundColor: colors.cardBackground,
@@ -494,78 +596,247 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 25, 47, 0.72)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
+    zIndex: 99999,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     width: '100%',
-    maxWidth: 420,
-    ...shadows.elevated,
+    maxWidth: 356,
+    maxHeight: '92%',
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    ...shadows.strong,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceBorder,
+  },
+  modalHeaderTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  modalIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 102, 204, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalHeading: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: colors.primaryNavy,
+    letterSpacing: 0.2,
+  },
+  modalSubheading: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalScrollBody: {
+    paddingBottom: 4,
   },
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: 11,
   },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  inputLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
-  textInput: {
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    marginBottom: 4,
+    letterSpacing: 0.4,
+  },
+  inputHelperText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.accentBlue,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.inputBackground,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: colors.textPrimary,
+    height: 38,
   },
-  rowInputs: {
+  textInput: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    padding: 0,
+  },
+  inputUnitBadge: {
+    backgroundColor: 'rgba(10, 25, 47, 0.06)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  inputUnitText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  radiusPresetsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 6,
+    marginTop: 6,
+  },
+  radiusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+  },
+  radiusChipActive: {
+    backgroundColor: colors.primaryNavy,
+    borderColor: colors.primaryNavy,
+  },
+  radiusChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  radiusChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  coordsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  coordCol: {
+    flex: 1,
+  },
+  coordLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  coordInput: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    padding: 0,
+  },
+  depotPresetsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    flexWrap: 'wrap',
+  },
+  depotPresetsLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.3,
+  },
+  depotPresetBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(0, 102, 204, 0.07)',
+    borderRadius: 5,
+  },
+  depotPresetText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.accentBlue,
+  },
+  statutoryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(22, 163, 106, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: 2,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 163, 106, 0.2)',
+  },
+  statutoryText: {
+    fontSize: 10,
+    color: colors.statusMoving,
+    fontWeight: '600',
+    flex: 1,
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
     gap: 10,
-    marginTop: 10,
+    marginTop: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
   },
   cancelBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flex: 1,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   confirmBtn: {
+    flex: 1.5,
+    height: 38,
+    borderRadius: 8,
     backgroundColor: colors.primaryNavy,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 12,
   },
 });
