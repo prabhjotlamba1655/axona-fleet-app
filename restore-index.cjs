@@ -24,7 +24,7 @@ rl.on('line', (line) => {
 
 rl.on('close', () => {
   if (found) {
-    const currentBundle = 'index-b57bc72ed5a589bb6f9f0ee6721d9436.js';
+    const currentBundle = 'index-d6d696d368a77e2f0ad2e79251eff425.js';
     const updated = found.replace(/index-[a-f0-9]{32}\.js/g, currentBundle);
     fs.writeFileSync('C:/Users/user/.gemini/antigravity/scratch/axona-mobile-app/dist/index.html', updated);
     console.log('Restored dist/index.html with bundle:', currentBundle);

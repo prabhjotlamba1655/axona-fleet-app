@@ -539,8 +539,10 @@ export const EnterpriseReportsScreen: React.FC<EnterpriseReportsScreenProps> = (
 }) => {
   const { vehicles, fetchVehicles } = useTelematicsStore();
 
-  // Primary Mode: 'reports' (VAHAN & DL tabs removed per user instruction)
-  const [activeMode, setActiveMode] = useState<'reports'>('reports');
+  // Primary Mode: 'vahan' vs 'dl'
+  const [activeMode, setActiveMode] = useState<'vahan' | 'dl'>(
+    route?.params?.initialTab === 'dl' ? 'dl' : 'vahan'
+  );
 
   // VAHAN Compliance State
   const [selectedVahanVehicle, setSelectedVahanVehicle] = useState<string>('ALL');
@@ -560,62 +562,29 @@ export const EnterpriseReportsScreen: React.FC<EnterpriseReportsScreenProps> = (
   const [activeReportType, setActiveReportType] = useState<ReportType>(
     route?.params?.reportType || 'movement'
   );
-  const [selectedPreset, setSelectedPreset] = useState<'today' | '7days' | '30days' | '90days' | 'custom'>('90days');
-  const [customStartDate, setCustomStartDate] = useState('2026-08-21');
-  const [customEndDate, setCustomEndDate] = useState('2026-11-19');
+  const [selectedPreset, setSelectedPreset] = useState<'today' | '7days' | '30days' | '90days'>('7days');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [reportData, setReportData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
-
-  // 90-day Range Calculation and Validation
-  const dateDiffDays = useMemo(() => {
-    try {
-      const s = new Date(customStartDate.trim());
-      const e = new Date(customEndDate.trim());
-      if (isNaN(s.getTime()) || isNaN(e.getTime())) return null;
-      return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-    } catch {
-      return null;
-    }
-  }, [customStartDate, customEndDate]);
-
-  const isDateRangeValid = useMemo(() => {
-    if (selectedPreset !== 'custom') return true;
-    if (dateDiffDays === null) return false;
-    return dateDiffDays >= 0 && dateDiffDays <= 90;
-  }, [selectedPreset, dateDiffDays]);
 
   useEffect(() => {
     fetchVehicles();
   }, []);
 
   useEffect(() => {
-    if (activeMode === 'reports') {
+    if (activeMode === 'audit') {
       loadReport();
     }
-  }, [activeMode, activeReportType, selectedPreset, selectedVehicleId, customStartDate, customEndDate]);
+  }, [activeMode, activeReportType, selectedPreset, selectedVehicleId]);
 
   const loadReport = async () => {
     try {
       setLoading(true);
-      const queryParams: any = {
+      const res = await api.reports.getReport(activeReportType, {
+        preset: selectedPreset,
         vehicleId: selectedVehicleId || undefined,
-      };
-
-      if (selectedPreset === 'custom') {
-        if (!isDateRangeValid) {
-          Alert.alert('Date Range Limit', 'Custom date range must be within the statutory 90-day audit limit.');
-          setLoading(false);
-          return;
-        }
-        queryParams.startDate = `${customStartDate.trim()} 00:00:00`;
-        queryParams.endDate = `${customEndDate.trim()} 23:59:59`;
-      } else {
-        queryParams.preset = selectedPreset;
-      }
-
-      const res = await api.reports.getReport(activeReportType, queryParams);
+      });
       setReportData(res?.data || []);
     } catch (e: any) {
       Alert.alert('Query Error', e.message || 'Report query failed');
@@ -662,335 +631,15 @@ export const EnterpriseReportsScreen: React.FC<EnterpriseReportsScreenProps> = (
       return;
     }
 
-    if (activeMode === 'reports') {
-      if (selectedPreset === 'custom' && !isDateRangeValid) {
-        Alert.alert('Audit Limit Exceeded', 'The maximum allowable date range for compliance reports is 90 days.');
-        return;
-      }
-
-      const queryParams: any = {
-        vehicleId: selectedVehicleId || undefined,
-      };
-      if (selectedPreset === 'custom') {
-        queryParams.startDate = `${customStartDate.trim()} 00:00:00`;
-        queryParams.endDate = `${customEndDate.trim()} 23:59:59`;
-      } else {
-        queryParams.preset = selectedPreset;
-      }
-
-      const csvUrl = api.reports.getCsvUrl(activeReportType, queryParams);
-      if (Platform.OS === 'web') {
-        window.open(csvUrl, '_blank');
-      } else {
-        Linking.openURL(csvUrl);
-      }
-    }
-  };
-
-  const handleDownloadPDF = () => {
-    if (selectedPreset === 'custom' && !isDateRangeValid) {
-      Alert.alert(
-        'Audit Limit Exceeded',
-        'The maximum allowable date range for compliance reports is 90 days. Please adjust your start and end dates.'
-      );
-      return;
-    }
-
-    const reportDef = REPORT_DEFINITIONS.find((r) => r.id === activeReportType) || REPORT_DEFINITIONS[0];
-    const horizonStr =
-      selectedPreset === 'custom'
-        ? `${customStartDate} to ${customEndDate} (${dateDiffDays} Days)`
-        : selectedPreset === '90days'
-        ? 'Last 90 Days (Statutory Max Retention)'
-        : selectedPreset === '30days'
-        ? 'Last 30 Days'
-        : selectedPreset === '7days'
-        ? 'Last 7 Days'
-        : 'Today (00:00 to 23:59)';
-
-    const targetAssetStr = selectedVehicleId
-      ? (vehicles.find((v) => v.id === selectedVehicleId)?.registration_number || selectedVehicleId)
-      : 'All Fleet Assets (6 Vehicles)';
-
-    const rowsToExport = filteredReportRows.slice(0, 150);
-
-    const tableHeadersHtml = reportDef.columns
-      .map((col) => `<th style="padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; border-bottom: 2px solid #334155;">${col}</th>`)
-      .join('');
-
-    const tableRowsHtml = rowsToExport
-      .map((row, idx) => {
-        const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
-        let cells: string[] = [];
-
-        if (activeReportType === 'movement') {
-          cells = [
-            row.gps_time || 'Record',
-            `<b>${row.registration_number || '-'}</b>`,
-            `<span style="background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;font-weight:700;">${row.speed || 0} km/h</span>`,
-            `<span style="color:${row.ignition ? '#16a34a' : '#64748b'};font-weight:700;">${row.ignition ? 'ON' : 'OFF'}</span>`,
-            `${row.heading || 0}°`,
-            row.address || 'GPS Coordinate',
-            `<a href="https://maps.google.com/?q=${row.latitude},${row.longitude}" target="_blank" style="color:#0284c7;text-decoration:none;">View Map</a>`,
-          ];
-        } else if (activeReportType === 'trips') {
-          cells = [
-            `<b>TRIP-${row.id}</b>`,
-            row.registration_number,
-            row.start_time,
-            row.end_time || 'In Transit',
-            `<span style="color:#0284c7;font-weight:700;">${row.distance_km || 0} km</span>`,
-            `${row.stoppage_minutes || 0}m (${row.stops_count || 0} stops)`,
-            `${row.start_address || 'Origin'} &rarr; ${row.end_address || 'Destination'}`,
-          ];
-        } else if (activeReportType === 'distance') {
-          cells = [
-            `<b>${row.registration_number}</b>`,
-            row.category || 'Commercial',
-            `${row.total_trips || 0} Trips`,
-            `<span style="color:#16a34a;font-weight:700;">${row.total_distance_km || 0} km</span>`,
-            `${row.peak_speed || 0} km/h`,
-            `${row.overall_avg_speed || 0} km/h`,
-            'Operational Active',
-          ];
-        } else if (activeReportType === 'overspeeding') {
-          cells = [
-            row.event_time,
-            `<b>${row.registration_number}</b>`,
-            row.driver_name || 'Fleet Driver',
-            `<span style="color:#dc2626;font-weight:800;">${row.speed} km/h</span>`,
-            `${row.speed_limit} km/h`,
-            `${row.duration_seconds || 15}s`,
-            row.address || 'Highway Corridor',
-          ];
-        } else if (activeReportType === 'panic') {
-          cells = [
-            row.event_time,
-            `<b>${row.registration_number}</b>`,
-            row.owner_name || 'Assigned Driver',
-            `<span style="background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-weight:700;">${row.status || 'RESOLVED'}</span>`,
-            row.emergency_contact_phone || '112 / PCR',
-            'AIS-140 Panic Emergency Desk Response Verified',
-          ];
-        } else if (activeReportType === 'device-health') {
-          cells = [
-            row.created_at || 'Recent',
-            `<b>${row.registration_number || 'Asset'}</b>`,
-            row.imei || '860144059281',
-            `<span style="color:#d97706;font-weight:700;">${row.event_type || 'BATTERY_CUT'}</span>`,
-            row.main_power_connected ? '12.6V (Normal)' : '0.0V (Cut)',
-            `${row.backup_battery_pct || 94}%`,
-            'Tamper Sensor Armed',
-          ];
-        } else if (activeReportType === 'geofence') {
-          cells = [
-            row.event_time,
-            `<b>${row.registration_number}</b>`,
-            `<b>${row.geofence_name || 'Depot'}</b>`,
-            `<span style="color:${row.event_type === 'ENTRY' ? '#16a34a' : '#0284c7'};font-weight:700;">${row.event_type}</span>`,
-            `${row.dwell_duration_min || 0} min`,
-            'Automated Perimeter Check Passed',
-          ];
-        } else {
-          cells = [
-            row.event_time,
-            `<b>${row.registration_number}</b>`,
-            row.driver_name || 'Assigned Driver',
-            `<b>${row.event_type}</b>`,
-            `<span style="color:#dc2626;font-weight:800;">${row.g_force_value || row.speed_recorded || '-'} G</span>`,
-            row.threshold_value || '0.45 G',
-            '-5 Score Penalty',
-          ];
-        }
-
-        return `<tr style="background:${bg}; border-bottom: 1px solid #E2E8F0;">
-          ${cells.map((c) => `<td style="padding: 7px 12px; font-size: 11px;">${c}</td>`).join('')}
-        </tr>`;
-      })
-      .join('');
-
-    const printableHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Axona Fleet - ${reportDef.title} (90-Day Audit)</title>
-  <style>
-    @page {
-      size: A4 landscape;
-      margin: 10mm 12mm;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #0f172a;
-      background: #FFFFFF;
-      margin: 0;
-      padding: 16px;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    .header-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 14px;
-      border-bottom: 2px solid #0f172a;
-      padding-bottom: 10px;
-    }
-    .brand-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #0f172a;
-      letter-spacing: -0.5px;
-    }
-    .compliance-badge {
-      display: inline-block;
-      background: #0f172a;
-      color: #FFFFFF;
-      padding: 4px 10px;
-      font-size: 10px;
-      font-weight: 700;
-      border-radius: 4px;
-      margin-top: 4px;
-    }
-    .meta-grid {
-      display: table;
-      width: 100%;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      margin-bottom: 16px;
-      padding: 10px;
-    }
-    .meta-row {
-      display: table-row;
-    }
-    .meta-cell {
-      display: table-cell;
-      padding: 4px 12px;
-      font-size: 11px;
-    }
-    .meta-label {
-      color: #64748b;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 9.5px;
-      display: block;
-    }
-    .meta-val {
-      color: #0f172a;
-      font-weight: 700;
-      font-size: 12px;
-    }
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    .report-table th {
-      background: #0f172a;
-      color: #FFFFFF;
-    }
-    .footer-audit {
-      margin-top: 20px;
-      border-top: 1px dashed #cbd5e1;
-      padding-top: 10px;
-      font-size: 9.5px;
-      color: #64748b;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-  </style>
-</head>
-<body>
-  <table class="header-table">
-    <tr>
-      <td>
-        <div class="brand-title">AXONA FLEET MANAGEMENT</div>
-        <div style="font-size: 11px; color: #475569; margin-top: 2px;">
-          STATUTORY TELEMATICS AUDIT & REGULATORY COMPLIANCE DESK
-        </div>
-        <div class="compliance-badge">MoRTH AIS-140 / CMVR Rule 125H Compliant Record</div>
-      </td>
-      <td style="text-align: right; vertical-align: top;">
-        <div style="font-size: 13px; font-weight: 800; color: #0284c7;">${reportDef.title}</div>
-        <div style="font-size: 10px; color: #64748b; margin-top: 3px;">Generated: ${new Date().toLocaleString()}</div>
-        <div style="font-size: 9.5px; color: #059669; font-weight: 700; margin-top: 2px;">Digital Audit Signature: SHA256-PASS</div>
-      </td>
-    </tr>
-  </table>
-
-  <div class="meta-grid">
-    <div class="meta-row">
-      <div class="meta-cell">
-        <span class="meta-label">Audit Time Horizon</span>
-        <span class="meta-val">${horizonStr}</span>
-      </div>
-      <div class="meta-cell">
-        <span class="meta-label">Target Asset / Scope</span>
-        <span class="meta-val">${targetAssetStr}</span>
-      </div>
-      <div class="meta-cell">
-        <span class="meta-label">Total Audit Records</span>
-        <span class="meta-val">${filteredReportRows.length} Indexed Events</span>
-      </div>
-      <div class="meta-cell">
-        <span class="meta-label">Retention Policy Status</span>
-        <span class="meta-val" style="color: #16a34a;">Valid (Within 90-Day Statutory Cap)</span>
-      </div>
-    </div>
-  </div>
-
-  <table class="report-table">
-    <thead>
-      <tr>${tableHeadersHtml}</tr>
-    </thead>
-    <tbody>
-      ${tableRowsHtml}
-    </tbody>
-  </table>
-
-  ${filteredReportRows.length > 150 ? `<div style="font-size: 10px; color: #64748b; margin-top: 6px; font-style: italic;">Note: Displaying first 150 of ${filteredReportRows.length} records in printed PDF format. Full dataset is exportable via CSV.</div>` : ''}
-
-  <div class="footer-audit">
-    <div>
-      <b>Legal Certification:</b> This document is generated from certified AIS-140 GPS telematics devices and is admissible under Section 65B of the Indian Evidence Act for insurance, statutory transport audits, and RTO inspections.
-    </div>
-    <div style="text-align: right; white-space: nowrap; margin-left: 20px;">
-      Page 1 of 1 • Axona Systems Enterprise
-    </div>
-  </div>
-</body>
-</html>
-    `;
+    const csvUrl = api.reports.getCsvUrl(activeReportType, {
+      preset: selectedPreset,
+      vehicleId: selectedVehicleId || undefined,
+    });
 
     if (Platform.OS === 'web') {
-      // 1. Open browser print dialogue
-      const printWin = window.open('', '_blank');
-      if (printWin) {
-        printWin.document.write(printableHtml);
-        printWin.document.close();
-        printWin.focus();
-        setTimeout(() => {
-          printWin.print();
-        }, 500);
-      }
-
-      // 2. Also download the file directly
-      const blob = new Blob([printableHtml], { type: 'text/html;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Axona_Audit_Report_${activeReportType}_90Days.html`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      Alert.alert(
-        'PDF Export Generated',
-        `The 90-day compliance report for "${reportDef.title}" has been generated in printable PDF format.`
-      );
+      window.open(csvUrl, '_blank');
     } else {
-      Alert.alert('PDF Export Ready', 'Compliance report generated successfully.');
+      Linking.openURL(csvUrl);
     }
   };
 
@@ -1060,178 +709,63 @@ export const EnterpriseReportsScreen: React.FC<EnterpriseReportsScreenProps> = (
     return str.includes(searchFilter.toLowerCase());
   });
 
-  const getColWidth = (colIdx: number, type: ReportType) => {
-    if (type === 'movement') {
-      const widths = [140, 120, 90, 80, 80, 220, 90];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'trips') {
-      const widths = [90, 120, 130, 130, 90, 130, 220];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'distance') {
-      const widths = [130, 140, 100, 120, 100, 100, 100];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'overspeeding') {
-      const widths = [140, 120, 110, 100, 100, 90, 200];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'panic') {
-      const widths = [140, 120, 110, 100, 120, 220];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'device-health') {
-      const widths = [140, 120, 140, 120, 100, 90, 90];
-      return widths[colIdx] || 110;
-    }
-    if (type === 'geofence') {
-      const widths = [140, 120, 150, 90, 110, 140];
-      return widths[colIdx] || 110;
-    }
-    const widths = [140, 120, 110, 140, 100, 90, 90];
-    return widths[colIdx] || 110;
-  };
-
-  const renderReportRow = (row: any, index: number) => {
-    switch (activeReportType) {
-      case 'movement':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.gps_time || 'Record'}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <View style={[styles.reportCell, { width: 90 }]}>
-              <View style={styles.speedPill}>
-                <Text style={styles.speedPillText}>{row.speed || 0} km/h</Text>
-              </View>
-            </View>
-            <View style={[styles.reportCell, { width: 80 }]}>
-              <Text style={[styles.statusTextPill, row.ignition ? styles.textGreen : styles.textGray]}>
-                {row.ignition ? 'ON' : 'OFF'}
-              </Text>
-            </View>
-            <Text style={[styles.reportCell, { width: 80 }]}>{row.heading || 0}°</Text>
-            <Text style={[styles.reportCell, { width: 220 }]} numberOfLines={1}>{row.address || 'GPS Coordinate'}</Text>
-            <TouchableOpacity
-              style={[styles.reportCell, { width: 90 }]}
-              onPress={() => {
-                const url = `https://maps.google.com/?q=${row.latitude},${row.longitude}`;
-                if (Platform.OS === 'web') window.open(url, '_blank');
-                else Linking.openURL(url);
-              }}
-            >
-              <Text style={styles.mapLinkText}>View Map</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case 'trips':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCellBold, { width: 90 }]}>TRIP-{row.id}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCell, { width: 130 }]}>{row.start_time}</Text>
-            <Text style={[styles.reportCell, { width: 130 }]}>{row.end_time || 'In Transit'}</Text>
-            <Text style={[styles.reportCellBold, { width: 90, color: colors.accentBlue }]}>{row.distance_km || 0} km</Text>
-            <Text style={[styles.reportCell, { width: 130 }]}>{row.stoppage_minutes || 0}m ({row.stops_count || 0} stops)</Text>
-            <Text style={[styles.reportCell, { width: 220 }]} numberOfLines={1}>{row.start_address} → {row.end_address}</Text>
-          </View>
-        );
-      case 'distance':
-        return (
-          <View key={row.vehicle_id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCellBold, { width: 130 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.category || 'Commercial'}</Text>
-            <Text style={[styles.reportCellBold, { width: 100 }]}>{row.total_trips || 0} Trips</Text>
-            <Text style={[styles.reportCellBold, { width: 120, color: colors.statusMoving }]}>{row.total_distance_km || 0} km</Text>
-            <Text style={[styles.reportCell, { width: 100 }]}>{row.peak_speed || 0} km/h</Text>
-            <Text style={[styles.reportCell, { width: 100 }]}>{row.overall_avg_speed || 0} km/h</Text>
-            <Text style={[styles.reportCell, { width: 100, color: colors.statusMoving, fontWeight: '700' }]}>Active Fleet</Text>
-          </View>
-        );
-      case 'overspeeding':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.event_time}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCell, { width: 110 }]}>{row.driver_name || 'Driver'}</Text>
-            <View style={[styles.reportCell, { width: 100 }]}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: colors.criticalRed }}>{row.speed} km/h</Text>
-            </View>
-            <Text style={[styles.reportCell, { width: 100 }]}>{row.speed_limit} km/h</Text>
-            <Text style={[styles.reportCell, { width: 90 }]}>{row.duration_seconds || 15}s</Text>
-            <Text style={[styles.reportCell, { width: 200 }]} numberOfLines={1}>{row.address || 'Highway Segment'}</Text>
-          </View>
-        );
-      case 'panic':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.event_time}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCell, { width: 110 }]}>{row.owner_name || 'Fleet Driver'}</Text>
-            <View style={[styles.reportCell, { width: 100 }]}>
-              <View style={[styles.speedPill, { backgroundColor: '#FEE2E2' }]}>
-                <Text style={[styles.speedPillText, { color: colors.criticalRed }]}>{row.status || 'RESOLVED'}</Text>
-              </View>
-            </View>
-            <Text style={[styles.reportCell, { width: 120 }]}>{row.emergency_contact_phone || '112 / PCR'}</Text>
-            <Text style={[styles.reportCell, { width: 220 }]} numberOfLines={1}>{row.address || 'AIS-140 Panic Location'}</Text>
-          </View>
-        );
-      case 'device-health':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.created_at || 'Recent'}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number || 'Asset'}</Text>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.imei || '860144059281'}</Text>
-            <Text style={[styles.reportCellBold, { width: 120, color: colors.warningAmber }]}>{row.event_type || 'BATTERY_CUT'}</Text>
-            <Text style={[styles.reportCell, { width: 100 }]}>{row.main_power_connected ? '12.6V' : '0.0V Cut'}</Text>
-            <Text style={[styles.reportCell, { width: 90 }]}>{row.backup_battery_pct || 94}%</Text>
-            <Text style={[styles.reportCell, { width: 90, color: colors.statusMoving }]}>Normal</Text>
-          </View>
-        );
-      case 'geofence':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.event_time}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCellBold, { width: 150 }]}>{row.geofence_name || 'Hinjawadi Depot'}</Text>
-            <View style={[styles.reportCell, { width: 90 }]}>
-              <Text style={[styles.statusTextPill, row.event_type === 'ENTRY' ? styles.textGreen : styles.textBlue]}>
-                {row.event_type}
-              </Text>
-            </View>
-            <Text style={[styles.reportCell, { width: 110 }]}>{row.dwell_duration_min || 0} min</Text>
-            <Text style={[styles.reportCell, { width: 140 }]}>Zone Verified</Text>
-          </View>
-        );
-      case 'driver-intelligence':
-        return (
-          <View key={row.id || index} style={[styles.reportRow, index % 2 === 1 && styles.reportRowAlt]}>
-            <Text style={[styles.reportCell, { width: 140 }]}>{row.event_time}</Text>
-            <Text style={[styles.reportCellBold, { width: 120 }]}>{row.registration_number}</Text>
-            <Text style={[styles.reportCell, { width: 110 }]}>{row.driver_name || 'Driver'}</Text>
-            <Text style={[styles.reportCellBold, { width: 140 }]}>{row.event_type}</Text>
-            <Text style={[styles.reportCellBold, { width: 100, color: colors.criticalRed }]}>{row.g_force_value || row.speed_recorded || '-'} G</Text>
-            <Text style={[styles.reportCell, { width: 90 }]}>{row.threshold_value || '0.45 G'}</Text>
-            <Text style={[styles.reportCell, { width: 90, color: colors.criticalRed }]}>-5 Pts</Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <View style={styles.container}>
       <Header
         navigation={navigation}
         showBack={true}
         showHome={true}
-        title="ENTERPRISE AUDIT REPORTS"
-        subtitle="All 8 PRD Telematics Reports (90 Days Retention)"
+        title="COMPLIANCE & AUDIT"
+        subtitle={activeMode === 'vahan' ? 'VAHAN & RTO Verification' : 'DL Validity Check'}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Top Primary Mode Switcher (VAHAN Table vs DL Validity Check) */}
+        <View style={styles.modeSwitcherCard}>
+          <TouchableOpacity
+            style={[
+              styles.modeTab,
+              activeMode === 'vahan' && styles.modeTabActive,
+            ]}
+            onPress={() => setActiveMode('vahan')}
+          >
+            <ShieldCheck
+              size={15}
+              color={activeMode === 'vahan' ? '#FFFFFF' : colors.primaryNavy}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.modeTabText,
+                activeMode === 'vahan' && styles.modeTabTextActive,
+              ]}
+            >
+              VAHAN & RTO Compliance
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.modeTab,
+              activeMode === 'dl' && styles.modeTabActive,
+            ]}
+            onPress={() => setActiveMode('dl')}
+          >
+            <UserCheck
+              size={15}
+              color={activeMode === 'dl' ? '#FFFFFF' : colors.primaryNavy}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.modeTabText,
+                activeMode === 'dl' && styles.modeTabTextActive,
+              ]}
+            >
+              DL Validity Check
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* ============================================================== */}
         {/* MODE A: VAHAN & RTO COMPLIANCE VERIFICATION (IMAGE 1 PARITY) */}
@@ -1789,276 +1323,6 @@ export const EnterpriseReportsScreen: React.FC<EnterpriseReportsScreenProps> = (
                 </View>
               </View>
             )}
-          </View>
-        )}
-
-        {/* ============================================================== */}
-        {/* MODE C: ENTERPRISE FLEET PRD REPORTS (1-8) & PDF EXPORT */}
-        {/* ============================================================== */}
-        {activeMode === 'reports' && (
-          <View>
-            {/* 1. Select Report Carousel Card */}
-            <View style={styles.reportSelectorCard}>
-              <Text style={styles.reportSelectorTitle}>SELECT PRD COMPLIANCE REPORT</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.reportCarouselContainer}
-              >
-                {REPORT_DEFINITIONS.map((def) => {
-                  const isSelected = activeReportType === def.id;
-                  return (
-                    <TouchableOpacity
-                      key={def.id}
-                      style={[
-                        styles.reportCarouselItem,
-                        isSelected && styles.reportCarouselItemActive,
-                      ]}
-                      onPress={() => setActiveReportType(def.id)}
-                    >
-                      <Text
-                        style={[
-                          styles.reportCarouselItemText,
-                          isSelected && styles.reportCarouselItemTextActive,
-                        ]}
-                      >
-                        {def.title}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              <Text style={styles.reportSelectorDesc}>{currentDef.desc}</Text>
-            </View>
-
-            {/* 2. Time Horizon (Max 90 Days) & Custom Date Range Card */}
-            <View style={styles.timeHorizonCard}>
-              <View style={styles.timeHorizonHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Calendar size={15} color={colors.primaryNavy} />
-                  <Text style={styles.timeHorizonTitle}>TIME HORIZON (MAX 90 DAYS)</Text>
-                </View>
-
-                {/* Top Action Buttons: Download PDF (90 Days) and Export CSV */}
-                <View style={styles.actionButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.downloadPdfBtn}
-                    onPress={handleDownloadPDF}
-                    activeOpacity={0.8}
-                  >
-                    <FileText size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.downloadPdfBtnText}>Download PDF (90 Days)</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.exportCsvBtn}
-                    onPress={handleExportCSV}
-                    activeOpacity={0.8}
-                  >
-                    <Download size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.exportCsvBtnText}>Export CSV</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Quick Presets Row */}
-              <View style={styles.presetsRow}>
-                {[
-                  { id: 'today', label: 'Today' },
-                  { id: '7days', label: '7 Days' },
-                  { id: '30days', label: '30 Days' },
-                  { id: '90days', label: '90 Days (Max)' },
-                  { id: 'custom', label: 'Custom Range' },
-                ].map((p) => {
-                  const isSelected = selectedPreset === p.id;
-                  return (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[
-                        styles.presetBtn,
-                        isSelected && styles.presetBtnActive,
-                      ]}
-                      onPress={() => setSelectedPreset(p.id as any)}
-                    >
-                      <Text
-                        style={[
-                          styles.presetBtnText,
-                          isSelected && styles.presetBtnTextActive,
-                        ]}
-                      >
-                        {p.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Custom Date Horizon Inputs */}
-              <View style={styles.customDateBox}>
-                <View style={styles.customDateHeaderRow}>
-                  <Text style={styles.customDateBoxTitle}>CUSTOM DATE RANGE (UP TO 90 DAYS):</Text>
-                  {selectedPreset !== 'custom' && (
-                    <TouchableOpacity onPress={() => setSelectedPreset('custom')}>
-                      <Text style={styles.enableCustomText}>Edit Custom Dates</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                <View style={styles.dateInputsRow}>
-                  <View style={styles.dateInputCol}>
-                    <Text style={styles.dateInputLabel}>START DATE (YYYY-MM-DD)</Text>
-                    <TextInput
-                      style={[styles.dateTextInput, selectedPreset === 'custom' && styles.dateTextInputActive]}
-                      value={customStartDate}
-                      onChangeText={(t) => {
-                        setCustomStartDate(t);
-                        if (selectedPreset !== 'custom') setSelectedPreset('custom');
-                      }}
-                      placeholder="2026-08-21"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-
-                  <View style={styles.dateInputCol}>
-                    <Text style={styles.dateInputLabel}>END DATE (YYYY-MM-DD)</Text>
-                    <TextInput
-                      style={[styles.dateTextInput, selectedPreset === 'custom' && styles.dateTextInputActive]}
-                      value={customEndDate}
-                      onChangeText={(t) => {
-                        setCustomEndDate(t);
-                        if (selectedPreset !== 'custom') setSelectedPreset('custom');
-                      }}
-                      placeholder="2026-11-19"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                </View>
-
-                {/* Validation and Duration Banner */}
-                {dateDiffDays !== null && (
-                  <View style={{ marginTop: 8 }}>
-                    {dateDiffDays >= 0 && dateDiffDays <= 90 ? (
-                      <View style={styles.validRangeChip}>
-                        <CheckCircle2 size={13} color="#16A34A" style={{ marginRight: 6 }} />
-                        <Text style={styles.validRangeText}>
-                          Selected Duration: {dateDiffDays} Days (Compliant with statutory 90-day retention limit)
-                        </Text>
-                      </View>
-                    ) : dateDiffDays > 90 ? (
-                      <View style={styles.invalidRangeChip}>
-                        <AlertTriangle size={13} color="#DC2626" style={{ marginRight: 6 }} />
-                        <Text style={styles.invalidRangeText}>
-                          Statutory Limit Exceeded: Selected range is {dateDiffDays} days. Telematics compliance data is limited to a maximum of 90 days.
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.invalidRangeChip}>
-                        <AlertTriangle size={13} color="#DC2626" style={{ marginRight: 6 }} />
-                        <Text style={styles.invalidRangeText}>
-                          Invalid Range: Start Date ({customStartDate}) must be before or equal to End Date ({customEndDate}).
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              {/* Vehicle Scope Filter Row */}
-              <View style={styles.scopeFilterRow}>
-                <Text style={styles.scopeFilterLabel}>TARGET ASSET:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  <TouchableOpacity
-                    style={[styles.scopeChip, selectedVehicleId === '' && styles.scopeChipActive]}
-                    onPress={() => setSelectedVehicleId('')}
-                  >
-                    <Text style={[styles.scopeChipText, selectedVehicleId === '' && styles.scopeChipTextActive]}>
-                      All Fleet (6 Assets)
-                    </Text>
-                  </TouchableOpacity>
-                  {vehicles.map((v) => {
-                    const isVSelected = selectedVehicleId === v.id;
-                    return (
-                      <TouchableOpacity
-                        key={v.id}
-                        style={[styles.scopeChip, isVSelected && styles.scopeChipActive]}
-                        onPress={() => setSelectedVehicleId(v.id)}
-                      >
-                        <Text style={[styles.scopeChipText, isVSelected && styles.scopeChipTextActive]}>
-                          {v.registration_number}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* Search Filter Input */}
-              <View style={styles.searchBarWrap}>
-                <Search size={14} color="#64748B" style={{ marginRight: 8 }} />
-                <TextInput
-                  style={styles.searchTextInput}
-                  value={searchFilter}
-                  onChangeText={setSearchFilter}
-                  placeholder="Search records in generated audit report..."
-                  placeholderTextColor={colors.textMuted}
-                />
-                {searchFilter.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchFilter('')}>
-                    <XCircle size={14} color="#94A3B8" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* 3. Report Results Table Card */}
-            <View style={styles.reportTableCard}>
-              <View style={styles.reportTableHeaderWrap}>
-                <Text style={styles.reportTableTitle}>
-                  {currentDef.title.toUpperCase()} ({filteredReportRows.length} RECORDS)
-                </Text>
-                <View style={styles.timeSeriesBadge}>
-                  <Text style={styles.timeSeriesBadgeText}>90-Day Indexed Time-Series</Text>
-                </View>
-              </View>
-
-              {loading ? (
-                <View style={styles.loadingReportWrap}>
-                  <ActivityIndicator size="small" color={colors.primaryNavy} />
-                  <Text style={styles.loadingReportText}>
-                    Indexing and validating 90-day compliance telemetry records...
-                  </Text>
-                </View>
-              ) : filteredReportRows.length === 0 ? (
-                <View style={styles.emptyReportWrap}>
-                  <Info size={22} color="#94A3B8" style={{ marginBottom: 6 }} />
-                  <Text style={styles.emptyReportText}>
-                    No records found matching your selected date range and filter criteria.
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={true} style={{ marginTop: 8 }}>
-                  <View>
-                    {/* Header Columns */}
-                    <View style={styles.tableHeaderRow}>
-                      {currentDef.columns.map((col, idx) => (
-                        <Text
-                          key={idx}
-                          style={[
-                            styles.tableColHeader,
-                            { width: getColWidth(idx, activeReportType) },
-                          ]}
-                        >
-                          {col}
-                        </Text>
-                      ))}
-                    </View>
-
-                    {/* Table Data Rows */}
-                    {filteredReportRows.slice(0, 100).map((row, idx) => renderReportRow(row, idx))}
-                  </View>
-                </ScrollView>
-              )}
-            </View>
           </View>
         )}
       </ScrollView>
@@ -3060,384 +2324,5 @@ const styles = StyleSheet.create({
     color: '#1E40AF',
     fontWeight: '600',
     flex: 1,
-  },
-
-  // Reports Mode Styles
-  reportSelectorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    marginBottom: 12,
-    ...shadows.subtle,
-  },
-  reportSelectorTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.primaryNavy,
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  reportCarouselContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 6,
-  },
-  reportCarouselItem: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  reportCarouselItemActive: {
-    backgroundColor: colors.primaryNavy,
-    borderColor: colors.primaryNavy,
-  },
-  reportCarouselItemText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryNavy,
-  },
-  reportCarouselItemTextActive: {
-    color: '#FFFFFF',
-  },
-  reportSelectorDesc: {
-    fontSize: 10.5,
-    fontStyle: 'italic',
-    color: '#64748B',
-    marginTop: 8,
-  },
-  timeHorizonCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    marginBottom: 12,
-    ...shadows.subtle,
-  },
-  timeHorizonHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  timeHorizonTitle: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: colors.primaryNavy,
-    letterSpacing: 0.6,
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  downloadPdfBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryNavy,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  downloadPdfBtnText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  exportCsvBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  exportCsvBtnText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  presetsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 12,
-  },
-  presetBtn: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 7,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  presetBtnActive: {
-    backgroundColor: colors.primaryNavy,
-    borderColor: colors.primaryNavy,
-  },
-  presetBtnText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primaryNavy,
-  },
-  presetBtnTextActive: {
-    color: '#FFFFFF',
-  },
-  customDateBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 10,
-    marginBottom: 12,
-  },
-  customDateHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  customDateBoxTitle: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  enableCustomText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: colors.accentBlue,
-  },
-  dateInputsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  dateInputCol: {
-    flex: 1,
-  },
-  dateInputLabel: {
-    fontSize: 8.5,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  dateTextInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  dateTextInputActive: {
-    borderColor: colors.primaryNavy,
-  },
-  validRangeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  validRangeText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#166534',
-    flex: 1,
-  },
-  invalidRangeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  invalidRangeText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#B91C1C',
-    flex: 1,
-  },
-  scopeFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 8,
-  },
-  scopeFilterLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: colors.textSecondary,
-  },
-  scopeChip: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  scopeChipActive: {
-    backgroundColor: colors.primaryNavy,
-    borderColor: colors.primaryNavy,
-  },
-  scopeChipText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: colors.primaryNavy,
-  },
-  scopeChipTextActive: {
-    color: '#FFFFFF',
-  },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  searchTextInput: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textPrimary,
-    padding: 0,
-  },
-  reportTableCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.surfaceBorder,
-    marginBottom: 14,
-    ...shadows.subtle,
-  },
-  reportTableHeaderWrap: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  reportTableTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primaryNavy,
-    flex: 1,
-  },
-  timeSeriesBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  timeSeriesBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  loadingReportWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
-    gap: 8,
-  },
-  loadingReportText: {
-    fontSize: 10.5,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  emptyReportWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 30,
-  },
-  emptyReportText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  tableHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.primaryNavy,
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-  },
-  tableColHeader: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    paddingHorizontal: 4,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  reportRowAlt: {
-    backgroundColor: '#F8FAFC',
-  },
-  reportCell: {
-    fontSize: 10,
-    color: colors.textPrimary,
-    paddingHorizontal: 4,
-  },
-  reportCellBold: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    paddingHorizontal: 4,
-  },
-  speedPill: {
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-  },
-  speedPillText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#0369A1',
-  },
-  statusTextPill: {
-    fontSize: 9.5,
-    fontWeight: '800',
-  },
-  textGreen: {
-    color: '#16A34A',
-  },
-  textGray: {
-    color: '#94A3B8',
-  },
-  textBlue: {
-    color: '#0284C7',
-  },
-  mapLinkText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0284C7',
-    textDecorationLine: 'underline',
   },
 });

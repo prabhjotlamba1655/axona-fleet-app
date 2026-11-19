@@ -32,6 +32,7 @@ import { DriverIntelligenceScreen } from '../screens/DriverIntelligenceScreen';
 import { GeofencingScreen } from '../screens/GeofencingScreen';
 import { DeviceHealthScreen } from '../screens/DeviceHealthScreen';
 import { EnterpriseReportsScreen } from '../screens/EnterpriseReportsScreen';
+import { FleetReportsScreen } from '../screens/FleetReportsScreen';
 import { NotificationCentreScreen } from '../screens/NotificationCentreScreen';
 import { ProfileSettingsScreen } from '../screens/ProfileSettingsScreen';
 import { UserManagementScreen } from '../screens/UserManagementScreen';
@@ -144,7 +145,8 @@ export function AppNavigator() {
         <Stack.Screen name="DriverIntelligence" component={DriverIntelligenceScreen} />
         <Stack.Screen name="Geofencing" component={GeofencingScreen} />
         <Stack.Screen name="DeviceHealth" component={DeviceHealthScreen} />
-        <Stack.Screen name="Reports" component={EnterpriseReportsScreen} />
+        <Stack.Screen name="Compliance" component={EnterpriseReportsScreen} />
+        <Stack.Screen name="Reports" component={FleetReportsScreen} />
         <Stack.Screen name="Notifications" component={NotificationCentreScreen} />
         <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
         <Stack.Screen name="UserManagement" component={UserManagementScreen} />
